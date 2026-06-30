@@ -263,20 +263,24 @@ function switchPage(id, el) {
   document.getElementById(id).classList.add('active');
   moveNavIndicator(el);
 
-  // Sync news tab to whichever sport is active in games
-  if (id === 'news-page') {
-    const activeGamesTab = document.querySelector('#games-page .tab.active');
-    const sport = activeGamesTab && activeGamesTab.textContent.trim().toLowerCase();
-    if (sport) {
-      const newsPage = document.getElementById('news-page');
-      newsPage.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      newsPage.querySelectorAll('.sport-view').forEach(v => v.classList.remove('active'));
-      const matchTab = Array.from(newsPage.querySelectorAll('.tab'))
-        .find(t => t.textContent.trim().toLowerCase() === sport);
-      if (matchTab) matchTab.classList.add('active');
-      const newsView = document.getElementById(sport + '-news');
-      if (newsView) newsView.classList.add('active');
-    }
+  // Keep games and news tabs in sync with each other
+  const syncFrom = id === 'news-page' ? '#games-page' : '#news-page';
+  const syncTo   = id === 'news-page' ? 'news-page'   : 'games-page';
+  const activeSrcTab = document.querySelector(syncFrom + ' .tab.active');
+  const sport = activeSrcTab && activeSrcTab.textContent.trim().toLowerCase();
+  if (sport) {
+    const destPage = document.getElementById(syncTo);
+    const destTabs = destPage.querySelectorAll('.tab');
+    // Freeze tab color transitions so the swap is instant (no flash)
+    destTabs.forEach(t => { t.style.transition = 'none'; t.classList.remove('active'); });
+    destPage.querySelectorAll('.sport-view').forEach(v => v.classList.remove('active'));
+    const matchTab = Array.from(destTabs).find(t => t.textContent.trim().toLowerCase() === sport);
+    if (matchTab) matchTab.classList.add('active');
+    const viewId = id === 'news-page' ? sport + '-news' : sport;
+    const destView = document.getElementById(viewId);
+    if (destView) destView.classList.add('active');
+    // Restore transitions after the browser paints the new state
+    requestAnimationFrame(() => destTabs.forEach(t => { t.style.transition = ''; }));
   }
 
   // Re-anchor the tab indicator for the now-visible page (was display:none during initIndicators)
