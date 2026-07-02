@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SportsFeed — Every Score. Every Story. One Feed.</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #111113; --card: #1a1a1d; --border: #252528;
+    --text: #f2f2f4; --muted: #8a8a92; --dim: #2e2e33;
+    --live: #e8414a; --accent: #3b82f6; --mlb: #22c55e;
+  }
+  html { background: var(--bg); scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Franklin Gothic Medium','Franklin Gothic','ITC Franklin Gothic','Arial Narrow',sans-serif;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* ── NAV ── */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 6%;
+    backdrop-filter: blur(10px);
+    background: rgba(17,17,19,0.7);
+    border-bottom: 1px solid transparent;
+    transition: border-color .3s, background .3s;
+  }
+  header.scrolled { border-color: var(--border); background: rgba(17,17,19,0.92); }
+  .logo-text { font-size: 18px; font-weight: 900; letter-spacing: -0.3px; }
+  .logo-text span { color: var(--accent); }
+  nav a { margin-left: 28px; font-size: 13px; font-weight: 600; color: var(--muted); transition: color .2s; }
+  nav a:hover { color: var(--text); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 120px 6% 60px;
+    position: relative; overflow: hidden;
+  }
+  .hero-bg-glow {
+    position: absolute; top: -20%; left: 50%; transform: translateX(-50%);
+    width: 900px; height: 900px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.20), rgba(59,130,246,0.06) 45%, transparent 70%);
+    filter: blur(40px); pointer-events: none; z-index: 0;
+  }
+  .live-row { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; z-index: 1; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+  .live-label { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
+
+  .hero h1 {
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 900; letter-spacing: -2px; line-height: 1.05;
+    max-width: 820px; z-index: 1;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero p {
+    margin-top: 20px; max-width: 480px; color: var(--muted);
+    font-size: 1.05rem; line-height: 1.5; z-index: 1;
+  }
+
+  .signup-form {
+    margin-top: 36px; display: flex; gap: 10px; flex-wrap: wrap;
+    justify-content: center; max-width: 460px; z-index: 1;
+  }
+  .signup-form input {
+    flex: 1 1 240px; padding: 14px 18px; border-radius: 3px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 0.95rem;
+  }
+  .signup-form input:focus { outline: 2px solid var(--accent); }
+  .cta-btn {
+    padding: 14px 26px; border-radius: 3px; border: none;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 0.95rem;
+    cursor: pointer; transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .15s;
+  }
+  .cta-btn:hover { transform: translateY(-2px); }
+  .cta-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .fine-print { margin-top: 12px; font-size: 0.78rem; color: var(--muted); z-index: 1; }
+  .cta-row { margin-top: 36px; display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 1; }
+  .cta-note { font-size: 0.8rem; color: var(--muted); letter-spacing: .3px; }
+
+  /* ── LIVE TICKER ── */
+  .ticker-wrap {
+    margin-top: 64px; width: 100%; max-width: 980px;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    overflow: hidden; z-index: 1;
+  }
+  .ticker-track {
+    display: flex; gap: 36px; padding: 16px 0; width: max-content;
+    animation: scrollTicker 26s linear infinite;
+  }
+  .ticker-track:hover { animation-play-state: paused; }
+  @keyframes scrollTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .ticker-item { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .ticker-item .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .ticker-item .dot.nba { background: var(--live); }
+  .ticker-item .dot.nfl { background: var(--accent); }
+  .ticker-item .dot.mlb { background: var(--mlb); }
+  .ticker-item .score { color: var(--muted); font-weight: 800; }
+
+  /* ── STATS STRIP (animated counters) ── */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+    max-width: 900px; width: 88%; margin: 70px auto 0; padding: 0; gap: 0; text-align: center;
+    border: 1px solid var(--border);
+  }
+  .stats > div { padding: 24px 12px; border-left: 1px solid var(--border); }
+  .stats > div:first-child { border-left: none; }
+  .stat-num { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 900; letter-spacing: -1px; }
+  .stat-num.live-color { color: var(--live); }
+  .stat-num.acc-color { color: var(--accent); }
+  .stat-num.mlb-color { color: var(--mlb); }
+  .stat-label { margin-top: 6px; font-size: 12px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; }
+
+  /* ── FEATURES ── */
+  .features {
+    max-width: 1100px; margin: 130px auto 0; padding: 0 6%;
+  }
+  .section-head {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--muted); text-align: center; margin-bottom: 14px;
+  }
+  .features h2 {
+    text-align: center; font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 900; letter-spacing: -1px;
+    margin-bottom: 56px;
+  }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 0; border: 1px solid var(--border); }
+  .feature-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 0;
+    margin: -1px 0 0 -1px;
+    padding: 28px 24px; opacity: 0; transform: translateY(24px);
+    transition: opacity .6s ease, transform .6s ease, border-color .25s;
+  }
+  .feature-card.in-view { opacity: 1; transform: translateY(0); }
+  .feature-card:hover { border-color: var(--muted); position: relative; z-index: 1; }
+  .feature-icon {
+    width: 42px; height: 42px; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+    margin-bottom: 16px;
+  }
+  .feature-icon.f1 { background: rgba(232,65,74,0.15); }
+  .feature-icon.f2 { background: rgba(74,144,232,0.15); }
+  .feature-icon.f3 { background: rgba(34,197,94,0.15); }
+  .feature-icon.f4 { background: rgba(232,65,74,0.15); }
+  .feature-icon svg { width: 22px; height: 22px; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .feature-icon.f1 svg { stroke: var(--live); }
+  .feature-icon.f2 svg { stroke: var(--accent); }
+  .feature-icon.f3 svg { stroke: var(--mlb); }
+  .feature-icon.f4 svg { stroke: var(--live); }
+  .feature-card h3 { font-size: 1rem; margin-bottom: 8px; }
+  .feature-card p { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+
+  /* ── APP WINDOW SHOWCASE (the real "one feed") ── */
+  .showcase {
+    max-width: 940px; margin: 84px auto 0; padding: 0 6%;
+  }
+  .showcase .section-head { margin-bottom: 22px; }
+  .app-window {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+    opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease;
+  }
+  .app-window.in-view { opacity: 1; transform: translateY(0); }
+  .win-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; background: #0d0d0f; border-bottom: 1px solid var(--border);
+  }
+  .win-title { font-size: 12px; font-weight: 800; letter-spacing: .3px; }
+  .win-title span { color: var(--accent); }
+  .win-live { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .win-live .live-dot { width: 6px; height: 6px; }
+  .win-ctrls { display: flex; gap: 10px; color: var(--muted); font-size: 12px; }
+  .win-body { display: grid; grid-template-columns: 1.6fr 1fr; }
+  .feed-col { border-right: 1px solid var(--border); }
+  .feed-league {
+    font-size: 10px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted); padding: 14px 18px 8px;
+  }
+  .game-row {
+    display: flex; align-items: center; gap: 14px; justify-content: space-between;
+    padding: 11px 18px; border-top: 1px solid var(--border);
+  }
+  .game-teams { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  .game-team { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+  .game-team.lose { color: var(--muted); }
+  .game-team .pts { margin-left: auto; font-weight: 800; }
+  .mini-logo {
+    width: 24px; height: 24px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8.5px; font-weight: 900; color: #fff; letter-spacing: .2px;
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.22), 0 1px 3px rgba(0,0,0,0.45);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.45);
+  }
+  .game-status { font-size: 11px; font-weight: 700; text-align: right; min-width: 74px; }
+  .game-status.live { color: var(--live); }
+  .game-status.final, .game-status.sched { color: var(--muted); }
+  .news-col { padding: 14px 16px; }
+  .news-head { font-size: 10px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .news-item { padding: 11px 0; border-top: 1px solid var(--border); font-size: 12.5px; line-height: 1.4; }
+  .news-item .tag {
+    display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 3px; margin-bottom: 6px;
+  }
+  .tag.nba { background: rgba(232,65,74,0.15); color: var(--live); }
+  .tag.nfl { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .tag.mlb { background: rgba(34,197,94,0.15); color: var(--mlb); }
+  @media (max-width: 680px) {
+    .win-body { grid-template-columns: 1fr; }
+    .feed-col { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  /* ── TRUST ROW ── */
+  .trust-row {
+    margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center; font-size: 12px; color: var(--muted);
+  }
+  .trust-row .sep { opacity: .5; }
+
+  /* ── FOOTER CTA ── */
+  .footer-cta {
+    text-align: center; max-width: 600px; margin: 130px auto 0; padding: 0 6% 110px;
+  }
+  .footer-cta h2 { font-size: clamp(1.8rem,3.5vw,2.4rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; }
+  .footer-cta p { color: var(--muted); margin-bottom: 28px; }
+
+  footer.site-footer {
+    border-top: 1px solid var(--border); padding: 28px 6%;
+    text-align: center; color: var(--muted); font-size: 12px;
+  }
+
+  @media (min-width: 640px) {
+    .hero h1 { letter-spacing: -2.5px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .live-dot { animation: none; }
+    .ticker-track { animation: none; }
+    .feature-card, .app-window {
+      opacity: 1; transform: none; transition: none;
+    }
+    .cta-btn { transition: none; }
+    * { scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<header id="siteHeader">
+  <div class="logo-text">Sports<span>Feed</span></div>
+  <nav>
+    <a href="#features">Features</a>
+    <a href="#signup-bottom">Download</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="live-row"><div class="live-dot"></div><span class="live-label">NBA, NFL and MLB, live</span></div>
+  <h1>Every score.<br>Every story. <span class="accent">One feed.</span></h1>
+  <p>SportsFeed brings live NBA, NFL, and MLB scores and news into one desktop app, pulled from ESPN and refreshed automatically — so you stop bouncing between five different apps.</p>
+
+  <div class="cta-row">
+    <button type="button" class="cta-btn" id="heroCta">Download Free for Windows</button>
+    <span class="cta-note">Free · No sign-up · Windows 10/11</span>
+  </div>
+
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+
+  <div class="stats">
+    <div>
+      <div class="stat-num live-color" data-target="3">0</div>
+      <div class="stat-label">Leagues Covered</div>
+    </div>
+    <div>
+      <div class="stat-num acc-color" data-target="20" data-suffix="s">0</div>
+      <div class="stat-label">Score Refresh</div>
+    </div>
+    <div>
+      <div class="stat-num mlb-color" data-target="0">0</div>
+      <div class="stat-label">Sign-Ups Needed</div>
+    </div>
+    <div>
+      <div class="stat-num" data-target="0">0</div>
+      <div class="stat-label">Ads, Ever</div>
+    </div>
+  </div>
+</section>
+
+<section class="showcase">
+  <div class="section-head">Everything in one window</div>
+  <div class="app-window">
+    <div class="win-bar">
+      <div class="win-title">Sports<span>Feed</span>
+        <span class="win-live"><span class="live-dot"></span>Live · auto-refresh 20s</span>
+      </div>
+      <div class="win-ctrls"><span>&minus;</span><span>&#9633;</span><span>&times;</span></div>
+    </div>
+    <div class="win-body">
+      <div class="feed-col">
+        <div class="feed-league">NBA · Today</div>
+        <div class="game-row">
+          <div class="game-teams">
+            <div class="game-team lose"><span class="mini-logo" style="background:linear-gradient(135deg,#1d428a,#ffc72c)">GSW</span>Warriors<span class="pts">88</span></div>
+            <div class="game-team"><span class="mini-logo" style="background:linear-gradient(135deg,#007a33,#ba9653)">BOS</span>Celtics<span class="pts">91</span></div>
+          </div>
+          <div class="game-status live">LIVE · Q3 6:42</div>
+        </div>
+        <div class="game-row">
+          <div class="game-teams">
+            <div class="game-team"><span class="mini-logo" style="background:linear-gradient(135deg,#552583,#fdb927)">LAL</span>Lakers<span class="pts">102</span></div>
+            <div class="game-team lose"><span class="mini-logo" style="background:linear-gradient(135deg,#0e2240,#fec524)">DEN</span>Nuggets<span class="pts">97</span></div>
+          </div>
+          <div class="game-status final">FINAL</div>
+        </div>
+        <div class="feed-league">NFL · Week 1</div>
+        <div class="game-row">
+          <div class="game-teams">
+            <div class="game-team"><span class="mini-logo" style="background:linear-gradient(135deg,#e31837,#ffb81c)">KC</span>Chiefs</div>
+            <div class="game-team"><span class="mini-logo" style="background:linear-gradient(135deg,#00338d,#c60c30)">BUF</span>Bills</div>
+          </div>
+          <div class="game-status sched">SUN 1:00</div>
+        </div>
+        <div class="feed-league">MLB · Today</div>
+        <div class="game-row">
+          <div class="game-teams">
+            <div class="game-team"><span class="mini-logo" style="background:linear-gradient(135deg,#0c2340,#5b6b7f)">NYY</span>Yankees<span class="pts">4</span></div>
+            <div class="game-team lose"><span class="mini-logo" style="background:linear-gradient(135deg,#bd3039,#0c2340)">BOS</span>Red Sox<span class="pts">3</span></div>
+          </div>
+          <div class="game-status live">LIVE · Top 7th</div>
+        </div>
+      </div>
+      <div class="news-col">
+        <div class="news-head">Latest headlines</div>
+        <div class="news-item"><span class="tag nba">NBA</span>Curry's late surge lifts Warriors past Celtics in a thriller.</div>
+        <div class="news-item"><span class="tag nfl">NFL</span>Chiefs list two starters as questionable ahead of Sunday's opener.</div>
+        <div class="news-item"><span class="tag mlb">MLB</span>Yankees edge Red Sox in extra-innings duel at Fenway.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="section-head">Why SportsFeed</div>
+  <h2>Built for people who never want to miss a moment</h2>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon f1"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+      <h3>Auto-updating scores</h3>
+      <p>NBA, NFL, and MLB scores refresh on their own every 20 seconds — no manual reload.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon f2"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <h3>Just the leagues you want</h3>
+      <p>Only NBA, NFL, and MLB, with league news filtered to the right sport so cross-sport headlines stay out.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon f3"><svg viewBox="0 0 24 24"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg></div>
+      <h3>Works offline</h3>
+      <p>Recent scores and news stay cached, so the latest data still loads — even when your connection drops.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon f4"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div>
+      <h3>League news, built in</h3>
+      <p>Top ESPN headlines for each league, right next to the day's games.</p>
+    </div>
+  </div>
+</section>
+
+<section class="footer-cta" id="signup-bottom">
+  <h2>Ready to follow every game?</h2>
+  <p>Download SportsFeed and get NBA, NFL, and MLB in one place.</p>
+  <div class="cta-row" style="margin-top:0;">
+    <button class="cta-btn" id="bottomCta">Download Free for Windows</button>
+    <span class="cta-note">Free · No sign-up · Windows 10/11</span>
+  </div>
+  <div class="trust-row">
+    <span>Version 1.0</span><span class="sep">·</span>
+    <span>Updated July 2026</span><span class="sep">·</span>
+    <span>~1.2 MB</span><span class="sep">·</span>
+    <span>Independent app — not affiliated with ESPN or any league</span>
+  </div>
+</section>
+
+<footer class="site-footer">
+  &copy; 2026 SportsFeed &middot; A free desktop app for Windows 10 and 11.<br>
+  SportsFeed is an independent app and is not affiliated with, endorsed by, or sponsored by ESPN. League data and headlines are sourced from ESPN.
+</footer>
+
+<script>
+  // ── Header shrink/blur on scroll ──
+  const header = document.getElementById('siteHeader');
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // ── Live ticker content (duplicated for seamless loop) ──
+  const games = [
+    { sport: 'nba', label: 'GSW @ BOS', score: '88–91' },
+    { sport: 'nfl', label: 'KC vs BUF', score: 'Sun 1:00 PM' },
+    { sport: 'mlb', label: 'NYY @ BOS', score: '4–3' },
+    { sport: 'nba', label: 'LAL vs DEN', score: '102–97' },
+    { sport: 'mlb', label: 'LAD @ SF', score: '2–1' },
+    { sport: 'nfl', label: 'DAL @ PHI', score: 'Final 24–20' },
+  ];
+  const track = document.getElementById('tickerTrack');
+  const renderTicker = () => games.concat(games).map(g =>
+    `<div class="ticker-item"><span class="dot ${g.sport}"></span>${g.label} <span class="score">${g.score}</span></div>`
+  ).join('');
+  track.innerHTML = renderTicker();
+
+  // ── Animated counters (run once, on scroll into view) ──
+  function animateCount(el) {
+    const target = parseFloat(el.dataset.target);
+    const suffix = el.dataset.suffix || '';
+    const duration = 1400;
+    const start = performance.now();
+    function tick(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(eased * target) + suffix;
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ── Scroll-reveal for feature cards / showcase ──
+  const revealEls = document.querySelectorAll('.feature-card, .app-window');
+  const statEls = document.querySelectorAll('.stat-num');
+
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+  revealEls.forEach(el => revealObserver.observe(el));
+
+  const statObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        animateCount(entry.target);
+        statObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  statEls.forEach(el => statObserver.observe(el));
+
+  // ── CTA handling ──
+  const DOWNLOAD_URL = 'https://github.com/funkydunkers/SportsFeed/raw/refs/heads/main/SportsFeed.exe';
+  function startDownload() {
+    window.location.href = DOWNLOAD_URL;
+  }
+  document.getElementById('heroCta').addEventListener('click', startDownload);
+  document.getElementById('bottomCta').addEventListener('click', startDownload);
+</script>
+</body>
+</html>
